@@ -15,6 +15,12 @@ private const val DEBUG_STORE_PREFIX = "com.google.firebase.appcheck.debug.store
 private const val DEBUG_SECRET_KEY = "com.google.firebase.appcheck.debug.DEBUG_SECRET"
 private const val RECAPTCHA_SITE_KEY_RES = "recaptcha_site_key"
 
+/**
+ * Configures Firebase App Check safely.
+ * Only installs DebugAppCheckProviderFactory when a valid debug token is explicitly
+ * provided (e.g. from launch intent), preventing the generation of unregistered random tokens
+ * that cause "Firebase App Check token is invalid" errors on real devices and test builds.
+ */
 fun configureAppCheck(context: Context, intent: Intent?) {
     try {
         if (FirebaseApp.getApps(context).isEmpty()) {
@@ -29,19 +35,19 @@ fun configureAppCheck(context: Context, intent: Intent?) {
                     "$DEBUG_STORE_PREFIX$persistenceKey",
                     Context.MODE_PRIVATE
                 )
-                // Use synchronous commit() to prevent race conditions before factory reads it
+                // Use synchronous commit() to ensure token is written before factory reads it
                 prefs.edit()
                     .putString(DEBUG_SECRET_KEY, debugToken)
                     .commit()
                 Log.d(TAG, "App Check debug secret configured successfully.")
-            } else {
-                Log.w(TAG, "No debug token found in Intent extra.")
-            }
 
-            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                DebugAppCheckProviderFactory.getInstance()
-            )
-            Log.d(TAG, "DebugAppCheckProviderFactory installed.")
+                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                )
+                Log.d(TAG, "DebugAppCheckProviderFactory installed.")
+            } else {
+                Log.d(TAG, "No debug token found in intent extra. Skipping debug provider to avoid invalid token errors.")
+            }
         } else {
             val resId = context.resources.getIdentifier(RECAPTCHA_SITE_KEY_RES, "string", context.packageName)
             if (resId != 0) {
@@ -55,6 +61,6 @@ fun configureAppCheck(context: Context, intent: Intent?) {
             }
         }
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to initialize Firebase App Check", e)
+        Log.w(TAG, "App Check initialization non-fatal warning", e)
     }
 }

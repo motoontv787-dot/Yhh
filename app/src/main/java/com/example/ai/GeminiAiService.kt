@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withTimeout
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 private const val TAG = "MivazoAiService"
 
@@ -65,7 +68,6 @@ class GeminiAiService {
 
             // Convert conversation history into Firebase AI Content items
             val historyContentList = mutableListOf<Content>()
-            // Use last 12 messages to keep context efficient and fast
             val recentHistory = history.takeLast(12)
             for (item in recentHistory) {
                 if (item.sender == "user") {
@@ -108,9 +110,25 @@ class GeminiAiService {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Firebase AI call failed", e)
-            val errorMsg = e.localizedMessage ?: "Unknown AI service error"
-            emit("\n\n⚠️ *Notice from Mivazo Core: $errorMsg*\n*Boss, please ensure an active internet connection is available.*")
+            Log.e(TAG, "AI Service call exception", e)
+            val errorMsg = e.localizedMessage.orEmpty()
+
+            val isOffline = e is UnknownHostException ||
+                    e is ConnectException ||
+                    e is SocketTimeoutException ||
+                    errorMsg.contains("UnknownHost", ignoreCase = true) ||
+                    errorMsg.contains("Unable to resolve host", ignoreCase = true) ||
+                    errorMsg.contains("No address associated with hostname", ignoreCase = true) ||
+                    errorMsg.contains("ENETUNREACH", ignoreCase = true)
+
+            if (isOffline) {
+                emit("Internet connection is unavailable. Please check your connection and try again.")
+            } else if (errorMsg.contains("App Check", ignoreCase = true)) {
+                Log.w(TAG, "App Check attestation exception caught: $errorMsg")
+                emit("Unable to verify App Check attestation token. Please ensure your device has internet access and try again, Boss.")
+            } else {
+                emit("⚠️ Notice: ${errorMsg.ifBlank { "An error occurred while generating response." }}\n*Please try again, Boss.*")
+            }
         }
     }.flowOn(Dispatchers.IO)
 }

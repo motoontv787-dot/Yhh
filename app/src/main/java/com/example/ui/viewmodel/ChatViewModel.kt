@@ -252,6 +252,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun executeAiGeneration(sessionId: Long, prompt: String, imageBitmap: Bitmap?) {
+        if (!networkMonitor.checkCurrentNetwork()) {
+            viewModelScope.launch {
+                chatDao.insertMessage(
+                    ChatMessageEntity(
+                        sessionId = sessionId,
+                        sender = "model",
+                        content = "Internet connection is unavailable. Please check your connection and try again.",
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+            return
+        }
+
         activeGenerationJob?.cancel()
         activeGenerationJob = viewModelScope.launch {
             _isGenerating.value = true
