@@ -1,0 +1,6 @@
+{
+  "name": "Mivazo AI",
+  "description": "Futuristic AI chatbot & assistant created for MOHSIN BOSS featuring dark cyber aesthetics, real-time intelligence, multimodal vision, speech, and productivity tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
